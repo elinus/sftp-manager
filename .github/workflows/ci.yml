@@ -1,0 +1,49 @@
+name: Build Check
+
+# When to run this workflow
+on:
+  push:
+    branches: [ main, develop ]  # Run on push to main or develop
+  pull_request:
+    branches: [ main, develop ]  # Run on pull requests to main or develop
+
+# Environment variables for the entire workflow
+env:
+  CARGO_TERM_COLOR: always  # Enable colored output in cargo
+
+jobs:
+  # Job to check if code compiles
+  build:
+    name: Check Build
+    runs-on: ubuntu-latest  # Use Ubuntu runner
+    
+    steps:
+      # Step 1: Checkout the code from the repository
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      # Step 2: Install Rust toolchain
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable  # Install latest stable Rust
+      
+      # Step 3: Cache dependencies to speed up builds
+      # This saves downloaded crates between runs
+      - name: Cache cargo dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+      
+      # Step 4: Check if the code compiles
+      # This is faster than a full build and catches compilation errors
+      - name: Check if code compiles
+        run: cargo check --verbose
+      
+      # Step 5 (Optional): Actually build the project
+      # Uncomment if you want to build the binary as well
+      # - name: Build project
+      #   run: cargo build --verbose
+
