@@ -1,2 +1,2 @@
 mod credential;
-mod server;
+pub mod sftp;

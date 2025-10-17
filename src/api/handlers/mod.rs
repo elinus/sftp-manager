@@ -1,2 +1,2 @@
 pub mod health;
-mod server;
+pub(crate) mod sftp;

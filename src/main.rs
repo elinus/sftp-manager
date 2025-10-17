@@ -1,10 +1,14 @@
 mod api;
 mod config;
 mod models;
+mod responses;
 mod services;
+mod utils;
 
-use crate::api::routes::configure_api_routes;
+use crate::api::routes::{configure_api_routes, configure_sftp_routes};
 use crate::config::settings::Settings;
+use crate::models::sftp::SftpState;
+use crate::utils::logger::init_logging;
 use axum::Router;
 use std::net::SocketAddr;
 use tokio::signal;
@@ -12,13 +16,20 @@ use tracing::info;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    tracing_subscriber::fmt().with_max_level(tracing::Level::INFO).init();
+    init_logging();
 
     let settings = Settings::new().expect("Failed to load configuration");
     info!("Starting SFTP Manager API Server");
     info!("Version: {}", env!("CARGO_PKG_VERSION"));
 
-    let app = Router::new().merge(configure_api_routes());
+    // Initialize SFTP state
+    let sftp_root = settings.sftp.root_dir.clone();
+    let sftp_port = settings.sftp.port;
+    let sftp_state = SftpState::new(sftp_root.clone());
+
+    let app = Router::new()
+        .merge(configure_api_routes())
+        .merge(configure_sftp_routes().with_state(sftp_state.clone()));
 
     // Create the TCP listener
     let addr = SocketAddr::from(([0, 0, 0, 0], settings.server.port));
