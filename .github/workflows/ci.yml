@@ -1,33 +1,159 @@
 name: Build Check
 
-# When to run this workflow
+# Trigger this workflow on push or pull request to main or develop branches
 on:
   push:
-    branches: [ main, develop ]  # Run on push to main or develop
+    branches: [main, develop]
   pull_request:
-    branches: [ main, develop ]  # Run on pull requests to main or develop
+    branches: [main, develop]
 
 # Environment variables for the entire workflow
 env:
-  CARGO_TERM_COLOR: always  # Enable colored output in cargo
+  CARGO_TERM_COLOR: always  # Force colored output for cargo commands
 
 jobs:
-  # Job to check if code compiles
-  build:
-    name: Check Build
-    runs-on: ubuntu-latest  # Use Ubuntu runner
-    
+  # -----------------------------
+  # Job 1: Syntax and dependency check
+  # -----------------------------
+  check:
+    name: Check
+    runs-on: ubuntu-latest
     steps:
-      # Step 1: Checkout the code from the repository
+      # Step 1: Checkout repository
       - name: Checkout code
         uses: actions/checkout@v4
-      
-      # Step 2: Install Rust toolchain
+
+      # Step 2: Install Rust stable toolchain
       - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable  # Install latest stable Rust
-      
-      # Step 3: Cache dependencies to speed up builds
-      # This saves downloaded crates between runs
+        uses: dtolnay/rust-toolchain@stable
+
+      # Step 3: Cache cargo registry to speed up downloads
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/registry
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-registry-
+
+      # Step 4: Cache cargo git index (for dependencies from git repos)
+      - name: Cache cargo git
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/git
+          key: ${{ runner.os }}-cargo-git-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-git-
+
+      # Step 5: Cache target directory (build artifacts)
+      - name: Cache cargo build
+        uses: actions/cache@v4
+        with:
+          path: target
+          key: ${{ runner.os }}-cargo-build-target-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-build-target-
+
+      # Step 6: Check that the code compiles
+      - name: Check code
+        run: cargo check --all-features --verbose
+
+  # -----------------------------
+  # Job 2: Run test suite
+  # -----------------------------
+  test:
+    name: Test Suite
+    runs-on: ubuntu-latest
+    needs: check  # Run after check job
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      # Cache all cargo artifacts and dependencies for faster test runs
+      - name: Cache dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-test-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-test-
+
+      # Run all tests
+      - name: Run tests
+        run: cargo test --all-features --verbose
+
+  # -----------------------------
+  # Job 3: Check code formatting
+  # -----------------------------
+  fmt:
+    name: Rustfmt
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Rust with rustfmt
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+
+      # Run rustfmt in check mode (does not modify files)
+      - name: Check formatting
+        run: cargo fmt --all -- --check
+
+  # -----------------------------
+  # Job 4: Run Clippy linter
+  # -----------------------------
+  clippy:
+    name: Clippy
+    runs-on: ubuntu-latest
+    needs: check  # Run after syntax/dependency check
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Rust with Clippy
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+
+      # Cache dependencies to speed up Clippy runs
+      - name: Cache dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-clippy-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-clippy-
+
+      # Run Clippy and treat warnings as errors
+      - name: Run clippy
+        run: cargo clippy --all-features -- -D warnings
+
+  # -----------------------------
+  # Job 5: Final build check
+  # -----------------------------
+  build:
+    name: Check Build
+    runs-on: ubuntu-latest
+    needs: [test, fmt, clippy]  # Run after test, fmt, and clippy jobs
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      # Cache dependencies to speed up build
       - name: Cache cargo dependencies
         uses: actions/cache@v4
         with:
@@ -36,14 +162,52 @@ jobs:
             ~/.cargo/git
             target
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-      
-      # Step 4: Check if the code compiles
-      # This is faster than a full build and catches compilation errors
+
+      # Fast check that the project compiles
       - name: Check if code compiles
         run: cargo check --verbose
-      
-      # Step 5 (Optional): Actually build the project
-      # Uncomment if you want to build the binary as well
+
+      # Optional: Actually build the project binary
+      # Uncomment to build artifacts
       # - name: Build project
       #   run: cargo build --verbose
 
+  # -----------------------------
+  # Job 6: Notify on successful build
+  # -----------------------------
+  notify:
+    name: Notify Success
+    runs-on: ubuntu-latest
+    needs: build                       # Only run after the build job completes
+    if: ${{ success() && github.event_name == 'push' }}  # Only notify on successful push
+
+    steps:
+      # Step 1: Simple console message
+      - name: Notify workflow success
+        run: |
+          echo "✅ CI pipeline completed successfully for ${{ github.ref }}"
+          echo "Workflow run: ${{ github.run_id }}"
+          echo "Repository: ${{ github.repository }}"
+
+      # Step 2 (Optional): Send notification to Slack
+      # Uncomment and set SLACK_WEBHOOK_URL in repository secrets
+      # - name: Notify Slack
+      #   uses: rtCamp/action-slack-notify@v2
+      #   with:
+      #     webhook_url: ${{ secrets.SLACK_WEBHOOK_URL }}
+      #     message: "✅ CI pipeline completed successfully for ${{ github.repository }} on branch ${{ github.ref }}"
+
+      # Step 3 (Optional): Send notification to Discord
+
+      - name: Notify Discord
+        run: |
+          COMMIT_MSG=$(echo "${{ github.event.head_commit.message }}" | sed 's/"/\\"/g')
+           curl -H "Content-Type: application/json" \
+                -X POST \
+                -d "{\"content\": \"🚀 Deployment ready!\n✅ CI passed for **${{ github.repository }}**\n📦 Branch: \`${{ github.ref_name }}\` | 🧑‍💻 Author: @${{ github.actor }}\n📝 ${COMMIT_MSG}\n🔍 [View build details](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})\"}" \
+                ${{ secrets.DISCORD_WEBHOOK_URL }}
+          
+#           curl -H "Content-Type: application/json" \
+#                -X POST \
+#                -d "{\"content\": \"✅ CI pipeline completed successfully for ${{ github.repository }} on branch ${{ github.ref }}\"}" \
+#                ${{ secrets.DISCORD_WEBHOOK_URL }}

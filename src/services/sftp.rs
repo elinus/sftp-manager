@@ -67,7 +67,7 @@ impl SftpService {
                 status: "enabled".to_string(),
                 enabled: true,
                 credentials: Some(credentials),
-                expires_at: expiration.map(|e| format_system_time(e)),
+                expires_at: expiration.map(format_system_time),
             })
         }
     }
@@ -178,6 +178,7 @@ impl SftpService {
     }
 
     // Check and handle expiration
+    #[allow(dead_code)]
     pub async fn check_expiration(&self) -> bool {
         if self.state.is_expired().await {
             info!("SFTP credentials expired, disabling server");

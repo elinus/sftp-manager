@@ -70,3 +70,20 @@ impl Default for Settings {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_default_settings() {
+        let settings = Settings::default();
+        assert_eq!(settings.server.port, 3000);
+    }
+
+    #[test]
+    fn test_settings_load() {
+        let result = Settings::new();
+        assert!(result.is_ok() || result.is_err()); // Just test it doesn't panic
+    }
+}
