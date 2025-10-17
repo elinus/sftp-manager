@@ -1,0 +1,8 @@
+[server]
+port = 3000
+host = "0.0.0.0"
+
+[sftp]
+port = 2222
+bind_addrs = "0.0.0.0"
+root_dir = "./sftp_root_dir"

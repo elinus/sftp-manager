@@ -1,4 +1,8 @@
-use axum::{Json, http::StatusCode};
+use axum::{
+    Json,
+    http::StatusCode,
+    response::{IntoResponse, Response},
+};
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
 
@@ -16,13 +20,27 @@ pub struct HealthResponse {
     pub uptime: Option<u64>,
 }
 
-pub async fn health_check() -> (StatusCode, Json<HealthResponse>) {
+#[derive(Debug)]
+pub struct ApiResponse<T> {
+    pub status: StatusCode,
+    pub data: T,
+}
+
+impl<T> IntoResponse for ApiResponse<T>
+where
+    T: Serialize,
+{
+    fn into_response(self) -> Response {
+        (self.status, Json(self.data)).into_response()
+    }
+}
+
+pub async fn health_check() -> ApiResponse<HealthResponse> {
     let response = HealthResponse {
         status: "healthy".to_string(),
         timestamp: Utc::now().to_rfc3339(),
         version: env!("CARGO_PKG_VERSION").to_string(),
-        uptime: None, // Can be implemented with application state
+        uptime: None,
     };
-
-    (StatusCode::OK, Json(response))
+    ApiResponse { status: StatusCode::OK, data: response }
 }
