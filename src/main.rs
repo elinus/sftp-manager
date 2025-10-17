@@ -5,12 +5,15 @@ mod responses;
 mod services;
 mod utils;
 
+use crate::api::handlers::sftp::AppState;
 use crate::api::routes::{configure_api_routes, configure_sftp_routes};
 use crate::config::settings::Settings;
 use crate::models::sftp::SftpState;
+use crate::services::sftp::SftpService;
 use crate::utils::logger::init_logging;
 use axum::Router;
 use std::net::SocketAddr;
+use std::sync::Arc;
 use tokio::signal;
 use tracing::info;
 
@@ -26,10 +29,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let sftp_root = settings.sftp.root_dir.clone();
     let sftp_port = settings.sftp.port;
     let sftp_state = SftpState::new(sftp_root.clone());
+    let sftp_service = Arc::new(SftpService::new(sftp_state, sftp_port));
+    let app_state = AppState { sftp_service };
 
     let app = Router::new()
         .merge(configure_api_routes())
-        .merge(configure_sftp_routes().with_state(sftp_state.clone()));
+        .merge(configure_sftp_routes().with_state(app_state.clone()));
 
     // Create the TCP listener
     let addr = SocketAddr::from(([0, 0, 0, 0], settings.server.port));
