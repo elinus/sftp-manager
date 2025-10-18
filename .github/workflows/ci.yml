@@ -6,6 +6,9 @@ on:
     branches: [main, develop]
   pull_request:
     branches: [main, develop]
+  schedule:
+    # Run automatically every Sunday at 8:00 AM IST (2:30 AM UTC)
+    - cron: '30 2 * * 0'
 
 # Environment variables for the entire workflow
 env:
@@ -64,7 +67,7 @@ jobs:
   test:
     name: Test Suite
     runs-on: ubuntu-latest
-    needs: check  # Run after check job
+    needs: check  # Run after a check job
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -172,42 +175,175 @@ jobs:
       # - name: Build project
       #   run: cargo build --verbose
 
-  # -----------------------------
+  # -----------------------------------------
   # Job 6: Notify on successful build
-  # -----------------------------
+  # -----------------------------------------
   notify:
     name: Notify Success
     runs-on: ubuntu-latest
-    needs: build                       # Only run after the build job completes
-    if: ${{ success() && github.event_name == 'push' }}  # Only notify on successful push
+    needs: build
+    if: ${{ success() && github.event_name == 'push' }}
 
     steps:
-      # Step 1: Simple console message
-      - name: Notify workflow success
+      - name: Notify Discord Success
+        continue-on-error: true
         run: |
-          echo "✅ CI pipeline completed successfully for ${{ github.ref }}"
-          echo "Workflow run: ${{ github.run_id }}"
-          echo "Repository: ${{ github.repository }}"
-
-      # Step 2 (Optional): Send notification to Slack
-      # Uncomment and set SLACK_WEBHOOK_URL in repository secrets
-      # - name: Notify Slack
-      #   uses: rtCamp/action-slack-notify@v2
-      #   with:
-      #     webhook_url: ${{ secrets.SLACK_WEBHOOK_URL }}
-      #     message: "✅ CI pipeline completed successfully for ${{ github.repository }} on branch ${{ github.ref }}"
-
-      # Step 3 (Optional): Send notification to Discord
-
-      - name: Notify Discord
-        run: |
-          COMMIT_MSG=$(echo "${{ github.event.head_commit.message }}" | sed 's/"/\\"/g')
-           curl -H "Content-Type: application/json" \
-                -X POST \
-                -d "{\"content\": \"🚀 Deployment ready!\n✅ CI passed for **${{ github.repository }}**\n📦 Branch: \`${{ github.ref_name }}\` | 🧑‍💻 Author: @${{ github.actor }}\n📝 ${COMMIT_MSG}\n🔍 [View build details](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})\"}" \
-                ${{ secrets.DISCORD_WEBHOOK_URL }}
+          # Extract commit info
+          COMMIT_MSG=$(echo "${{ github.event.head_commit.message }}" | head -n 1 | sed 's/"/\\"/g' | cut -c1-80)
+          COMMIT_SHA="${{ github.sha }}"
+          SHORT_SHA="${COMMIT_SHA:0:7}"
+          AUTHOR_NAME="${{ github.event.head_commit.author.name }}"
+          AUTHOR_AVATAR="${{ github.event.head_commit.author.avatar_url }}"
+          REPO_NAME="${{ github.repository }}"
+          BRANCH_NAME="${{ github.ref_name }}"
+          COMMIT_URL="${{ github.event.head_commit.url }}"
+          RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          COMPARE_URL="${{ github.event.compare }}"
+          TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          WORKFLOW_NAME="${{ github.workflow }}"
           
-#           curl -H "Content-Type: application/json" \
-#                -X POST \
-#                -d "{\"content\": \"✅ CI pipeline completed successfully for ${{ github.repository }} on branch ${{ github.ref }}\"}" \
-#                ${{ secrets.DISCORD_WEBHOOK_URL }}
+          # Get commit count (if available)
+          COMMITS_COUNT="${{ github.event.commits }}"
+          COMMIT_COUNT=$(echo "$COMMITS_COUNT" | jq '. | length' 2>/dev/null || echo "1")
+          
+          curl -H "Content-Type: application/json" \
+               -X POST \
+               -d "{
+                 \"username\": \"CI Bot\",
+                 \"avatar_url\": \"https://api.dicebear.com/7.x/identicon/svg?seed=cibot\",
+                 \"embeds\": [{
+                   \"title\": \"🚀 Deployment Ready! CI Passed\",
+                   \"url\": \"${RUN_URL}\",
+                   \"description\": \"**[${REPO_NAME}](https://github.com/${REPO_NAME})**\\nBranch: [\`${BRANCH_NAME}\`](https://github.com/${REPO_NAME}/tree/${BRANCH_NAME}) | Author: **${AUTHOR_NAME}**\\n\\n💬 [\`${SHORT_SHA}\`](${COMMIT_URL}) ${COMMIT_MSG}\",
+                   \"color\": 5763719,
+                   \"fields\": [
+                     {
+                       \"name\": \"📊 Build Status\",
+                       \"value\": \"✅ All CI checks passed\\n   🔍 Syntax Check\n   🧪 Tests\n   📝 Formatting\n   📎 Clippy\n   🏗️ Build\",
+                       \"inline\": false
+                     },
+                     {
+                       \"name\": \"📦 Details\",
+                       \"value\": \"Workflow: \`${WORKFLOW_NAME}\`\\nCommits: ${COMMIT_COUNT}\",
+                       \"inline\": false
+                     },
+                     {
+                       \"name\": \"🔗 Quick Links\",
+                       \"value\": \"[View Changes](${COMPARE_URL}) • [Build Details](${RUN_URL})\",
+                       \"inline\": false
+                     }
+                   ],
+                   \"thumbnail\": {
+                     \"url\": \"https://cdn-icons-png.flaticon.com/512/5610/5610944.png\"
+                   },
+                   \"timestamp\": \"${TIMESTAMP}\"
+                 }]
+               }" \
+               ${{ secrets.DISCORD_WEBHOOK_URL }}
+
+  notify-failure:
+    name: Notify Failure
+    runs-on: ubuntu-latest
+    needs: build
+    if: ${{ failure() && github.event_name == 'push' }}
+
+    steps:
+      - name: Notify Discord Failure
+        continue-on-error: true
+        run: |
+          # Extract commit info
+          COMMIT_MSG=$(echo "${{ github.event.head_commit.message }}" | head -n 1 | sed 's/"/\\"/g' | cut -c1-80)
+          COMMIT_SHA="${{ github.sha }}"
+          SHORT_SHA="${COMMIT_SHA:0:7}"
+          AUTHOR_NAME="${{ github.event.head_commit.author.name }}"
+          AUTHOR_AVATAR="${{ github.event.head_commit.author.avatar_url }}"
+          REPO_NAME="${{ github.repository }}"
+          BRANCH_NAME="${{ github.ref_name }}"
+          COMMIT_URL="${{ github.event.head_commit.url }}"
+          RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          WORKFLOW_NAME="${{ github.workflow }}"
+          
+          curl -H "Content-Type: application/json" \
+               -X POST \
+               -d "{
+                 \"username\": \"CI Bot\",
+                 \"avatar_url\": \"https://api.dicebear.com/7.x/identicon/svg?seed=cibot\",
+                 \"content\": \"⚠️ <@&YOUR_ROLE_ID> Build failed - attention required!\",
+                 \"embeds\": [{
+                   \"title\": \"❌ Build Failed - Action Required\",
+                   \"url\": \"${RUN_URL}\",
+                   \"description\": \"**[${REPO_NAME}](https://github.com/${REPO_NAME})**\\nBranch: [\`${BRANCH_NAME}\`](https://github.com/${REPO_NAME}/tree/${BRANCH_NAME}) | Author: **${AUTHOR_NAME}**\\n\\n💬 [\`${SHORT_SHA}\`](${COMMIT_URL}) ${COMMIT_MSG}\",
+                   \"color\": 15548997,
+                   \"fields\": [
+                     {
+                       \"name\": \"❗ Issue\",
+                       \"value\": \"One or more CI checks failed. Review the logs and fix the issues.\",
+                       \"inline\": false
+                     },
+                     {
+                       \"name\": \"📋 Next Steps\",
+                       \"value\": \"1. [Check build logs](${RUN_URL})\\n2. Fix failing tests/checks\\n3. Push fixes to \`${BRANCH_NAME}\`\",
+                       \"inline\": false
+                     },
+                     {
+                       \"name\": \"🔧 Workflow\",
+                       \"value\": \"\`${WORKFLOW_NAME}\`\",
+                       \"inline\": false
+                     },
+                     {
+                       \"name\": \"🔗 Actions\",
+                       \"value\": \"[View Logs](${RUN_URL}) • [Commit](${COMMIT_URL})\",
+                       \"inline\": false
+                     }
+                   ],
+                   \"thumbnail\": {
+                     \"url\": \"https://cdn-icons-png.flaticon.com/512/753/753345.png\"
+                   },
+                   \"timestamp\": \"${TIMESTAMP}\"
+                 }]
+               }" \
+               ${{ secrets.DISCORD_WEBHOOK_URL }}
+
+  # -----------------------------------------
+  # Notify on PR events
+  # -----------------------------------------
+  notify-pr:
+    name: Notify Pull Request
+    runs-on: ubuntu-latest
+    needs: build
+    if: ${{ success() && github.event_name == 'pull_request' }}
+
+    steps:
+      - name: Notify Discord PR Success
+        continue-on-error: true
+        run: |
+          PR_TITLE=$(echo "${{ github.event.pull_request.title }}" | sed 's/"/\\"/g')
+          PR_NUMBER="${{ github.event.pull_request.number }}"
+          PR_URL="${{ github.event.pull_request.html_url }}"
+          AUTHOR_NAME="${{ github.event.pull_request.user.login }}"
+          AUTHOR_AVATAR="${{ github.event.pull_request.user.avatar_url }}"
+          REPO_NAME="${{ github.repository }}"
+          BASE_BRANCH="${{ github.event.pull_request.base.ref }}"
+          HEAD_BRANCH="${{ github.event.pull_request.head.ref }}"
+          RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          
+          curl -H "Content-Type: application/json" \
+               -X POST \
+               -d "{
+                 \"username\": \"CI Bot\",
+                 \"avatar_url\": \"https://api.dicebear.com/7.x/identicon/svg?seed=cibot\",
+                 \"embeds\": [{
+                   \"author\": {
+                     \"name\": \"${AUTHOR_NAME}\",
+                     \"icon_url\": \"${AUTHOR_AVATAR}\"
+                   },
+                   \"title\": \"🔀 PR #${PR_NUMBER} - Checks Passed\",
+                   \"url\": \"${PR_URL}\",
+                   \"description\": \"**${PR_TITLE}**\\n\\n[\`${REPO_NAME}\`](https://github.com/${REPO_NAME}) • [\`${HEAD_BRANCH}\`](https://github.com/${REPO_NAME}/tree/${HEAD_BRANCH}) → [\`${BASE_BRANCH}\`](https://github.com/${REPO_NAME}/tree/${BASE_BRANCH})\\n\\n✅ Ready for review\",
+                   \"color\": 8359053,
+                   \"timestamp\": \"${TIMESTAMP}\"
+                 }]
+               }" \
+               ${{ secrets.DISCORD_WEBHOOK_URL }}

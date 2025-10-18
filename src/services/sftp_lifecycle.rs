@@ -1,8 +1,8 @@
+use crate::models::sftp::SftpState;
 use std::time::Duration;
 use tokio::task::JoinHandle;
 use tokio::time::interval;
 use tracing::{error, info, warn};
-use crate::models::sftp::SftpState;
 
 /// SFTP lifecycle manager
 /// Handles:
@@ -49,11 +49,12 @@ impl SftpLifecycleManager {
     async fn run(self) {
         info!("SFTP lifecycle manager started");
 
-        let mut check_interval = interval(Duration::from_secs(self.check_interval_secs));
+        let mut check_interval =
+            interval(Duration::from_secs(self.check_interval_secs));
         let mut server_task: Option<JoinHandle<()>> = None;
 
         loop {
-            // Wait for next check
+            // Wait for the next check
             check_interval.tick().await;
 
             // Check for expiration first
@@ -99,9 +100,14 @@ impl SftpLifecycleManager {
     }
 
     // Start the actual SFTP server
-    async fn start_server(&self) -> Result<JoinHandle<()>, Box<dyn std::error::Error + Send + Sync>> {
+    async fn start_server(
+        &self,
+    ) -> Result<JoinHandle<()>, Box<dyn std::error::Error + Send + Sync>> {
         // Get credentials
-        let credentials = self.state.get_credentials().await
+        let credentials = self
+            .state
+            .get_credentials()
+            .await
             .ok_or("No credentials available")?;
 
         // Clone values for the task
@@ -109,7 +115,7 @@ impl SftpLifecycleManager {
         let port = self.port;
         let root_dir = self.root_directory.clone();
         let username = credentials.username.clone();
-        let password = credentials.password.clone();
+        let _password = credentials.password.clone();
 
         info!(
             "Starting SFTP server: address={}, port={}, root={}, user={}",
@@ -145,18 +151,15 @@ impl SftpLifecycleManager {
 }
 
 // Convenience function to start the lifecycle manager
+#[allow(dead_code)]
 pub fn start_sftp_lifecycle(
     state: SftpState,
     bind_address: String,
     port: u16,
     root_directory: String,
 ) -> JoinHandle<()> {
-    let manager = SftpLifecycleManager::new(
-        state,
-        bind_address,
-        port,
-        root_directory,
-    );
+    let manager =
+        SftpLifecycleManager::new(state, bind_address, port, root_directory);
 
     manager.start()
 }
