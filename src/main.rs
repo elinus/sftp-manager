@@ -29,7 +29,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let sftp_root = settings.sftp.root_dir.clone();
     let sftp_port = settings.sftp.port;
     let sftp_state = SftpState::new(sftp_root.clone());
-    let sftp_service = Arc::new(SftpService::new(sftp_state, sftp_port));
+    let sftp_service = Arc::new(SftpService::new(sftp_state.clone(), sftp_port));
     let app_state = AppState { sftp_service };
 
     let app = Router::new()
