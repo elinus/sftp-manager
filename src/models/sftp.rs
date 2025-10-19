@@ -72,15 +72,7 @@ impl SftpCredentials {
     }
 }
 
-// Request to toggle SFTP server
-#[derive(Debug, Deserialize)]
-pub struct ToggleSftpRequest {
-    /// Duration in seconds for credentials to be valid (optional)
-    /// Default: 30 days
-    #[serde(default = "default_expiration_days")]
-    pub expiration_days: u64,
-}
-
+#[allow(dead_code)]
 fn default_expiration_days() -> u64 {
     30
 }
