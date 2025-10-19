@@ -4,8 +4,7 @@ use tracing::info;
 
 pub async fn toggle_sftp(State(state): State<AppState>) -> impl IntoResponse {
     info!("🔁 Toggle SFTP request");
-    let expiration_days = 30;
-    state.sftp_service.toggle(expiration_days).await;
+    state.sftp_service.toggle().await
 }
 
 pub async fn get_sftp_status(

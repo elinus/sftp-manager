@@ -8,7 +8,6 @@ mod utils;
 
 use crate::api::routes::{configure_health_routes, configure_sftp_routes};
 use crate::config::settings::Settings;
-use crate::models::sftp::SftpState;
 use crate::services::sftp::SftpService;
 use crate::utils::logger::init_logging;
 use axum::Router;
@@ -27,11 +26,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     info!("Version: {}", env!("CARGO_PKG_VERSION"));
 
     // Initialize SFTP state
-    let sftp_root = settings.sftp.root_dir.clone();
+    let sftp_bind_addrs = settings.sftp.bind_addrs.clone();
     let sftp_port = settings.sftp.port;
-    let sftp_state = SftpState::new(sftp_root.clone());
+    let sftp_root = settings.sftp.root_dir.clone();
     let sftp_service =
-        Arc::new(SftpService::new(sftp_state.clone(), sftp_port));
+        Arc::new(SftpService::new(sftp_bind_addrs, sftp_port, sftp_root));
+
     let app_state = AppState { sftp_service, uptime: Utc::now() };
 
     let app = Router::new()

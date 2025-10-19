@@ -3,7 +3,7 @@ use axum::{Json, http::StatusCode};
 use serde::Serialize;
 
 #[derive(Debug, Serialize)]
-pub struct ApiResponse<T>
+pub struct SftpApiResponse<T>
 where
     T: Serialize,
 {
@@ -11,28 +11,28 @@ where
     pub status: StatusCode,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub data: Option<T>,
+    pub sftp: Option<T>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub message: Option<String>,
 }
 
-impl<T> ApiResponse<T>
+impl<T> SftpApiResponse<T>
 where
     T: Serialize,
 {
     // Create a successful response with data
-    pub fn success(data: T) -> Self {
-        Self { status: StatusCode::OK, data: Some(data), message: None }
+    pub fn success(sftp_obj: T) -> Self {
+        Self { status: StatusCode::OK, sftp: Some(sftp_obj), message: None }
     }
 
     // Create an error response with a message and status
     pub fn error(status: StatusCode, message: impl Into<String>) -> Self {
-        Self { status, data: None, message: Some(message.into()) }
+        Self { status, sftp: None, message: Some(message.into()) }
     }
 }
 
-impl<T> IntoResponse for ApiResponse<T>
+impl<T> IntoResponse for SftpApiResponse<T>
 where
     T: Serialize,
 {

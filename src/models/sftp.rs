@@ -9,16 +9,14 @@ pub struct SftpState {
     pub enabled: Arc<RwLock<bool>>,
     pub expiration: Arc<RwLock<Option<SystemTime>>>,
     pub credentials: Arc<RwLock<Option<SftpCredentials>>>,
-    pub root_dir: Arc<RwLock<String>>,
 }
 
 impl SftpState {
-    pub fn new(root_dir: String) -> Self {
+    pub fn new() -> Self {
         Self {
             enabled: Arc::new(RwLock::new(false)),
             expiration: Arc::new(RwLock::new(None)),
             credentials: Arc::new(RwLock::new(None)),
-            root_dir: Arc::new(RwLock::new(root_dir)),
         }
     }
 
@@ -53,10 +51,6 @@ impl SftpState {
     pub async fn get_credentials(&self) -> Option<SftpCredentials> {
         self.credentials.read().await.clone()
     }
-
-    pub async fn get_root_directory(&self) -> String {
-        self.root_dir.read().await.clone()
-    }
 }
 
 // SFTP credentials
@@ -70,11 +64,6 @@ impl SftpCredentials {
     pub fn new(username: String, password: String) -> Self {
         Self { username, password }
     }
-}
-
-#[allow(dead_code)]
-fn default_expiration_days() -> u64 {
-    30
 }
 
 // Response when toggling SFTP
@@ -94,11 +83,9 @@ pub struct SftpStatusResponse {
     pub enabled: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub expires_at: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub expires_in_seconds: Option<u64>,
 }
 
-/// Response for credentials endpoint
+// Response for credentials endpoint
 #[derive(Debug, Serialize)]
 pub struct CredentialsResponse {
     pub username: String,

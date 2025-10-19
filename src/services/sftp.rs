@@ -2,7 +2,7 @@ use crate::models::sftp::{
     CredentialsResponse, SftpCredentials, SftpState, SftpStatusResponse,
     ToggleSftpResponse,
 };
-use crate::responses::api_response::ApiResponse;
+use crate::responses::sftp::SftpApiResponse;
 use axum::http::StatusCode;
 use rand::Rng;
 use rand::distr::Alphanumeric;
@@ -11,21 +11,20 @@ use tracing::{info, warn};
 
 // SFTP service for managing server lifecycle
 pub struct SftpService {
+    pub bind_addrs: String,
+    pub port: u16,
+    pub root_dir: String,
     state: SftpState,
-    port: u16,
 }
 
 impl SftpService {
     // Create a new SFTP service
-    pub fn new(state: SftpState, port: u16) -> Self {
-        Self { state, port }
+    pub fn new(bind_addrs: String, port: u16, root_dir: String) -> Self {
+        Self { bind_addrs, port, root_dir, state: SftpState::new() }
     }
 
     // Toggle SFTP server on/off
-    pub async fn toggle(
-        &self,
-        expiration_days: u64,
-    ) -> ApiResponse<ToggleSftpResponse> {
+    pub async fn toggle(&self) -> SftpApiResponse<ToggleSftpResponse> {
         let is_enabled = self.state.is_enabled().await;
 
         if is_enabled {
@@ -33,7 +32,7 @@ impl SftpService {
             info!("Disabling SFTP server");
             self.state.disable().await;
 
-            ApiResponse::success(ToggleSftpResponse {
+            SftpApiResponse::success(ToggleSftpResponse {
                 status: "disabled".to_string(),
                 enabled: false,
                 credentials: None,
@@ -46,24 +45,24 @@ impl SftpService {
             let credentials = self.generate_credentials();
 
             // Calculate expiration time
-            let expiration = if expiration_days > 0 {
-                Some(
-                    SystemTime::now()
-                        + Duration::from_secs(expiration_days * 24 * 60 * 60),
-                )
-            } else {
-                None
-            };
+            let expiration = Some(
+                SystemTime::now() + Duration::from_secs(30 * 24 * 60 * 60),
+            );
 
             // Enable the server
             self.state.enable(credentials.clone(), expiration).await;
 
+            // Log formatted expiration date
+            let formatted_expiration = expiration
+                .map(format_system_time)
+                .unwrap_or_else(|| "N/A".to_string());
+
             info!(
-                "SFTP enabled with username: {}, expires in {} days",
-                credentials.username, expiration_days
+                "SFTP enabled with username: {}, expires at {}",
+                credentials.username, formatted_expiration
             );
 
-            ApiResponse::success(ToggleSftpResponse {
+            SftpApiResponse::success(ToggleSftpResponse {
                 status: "enabled".to_string(),
                 enabled: true,
                 credentials: Some(credentials),
@@ -73,15 +72,14 @@ impl SftpService {
     }
 
     // Get current SFTP status
-    pub async fn get_status(&self) -> ApiResponse<SftpStatusResponse> {
+    pub async fn get_status(&self) -> SftpApiResponse<SftpStatusResponse> {
         let enabled = self.state.is_enabled().await;
         // let root_directory = self.state.get_root_directory().await;
 
         if !enabled {
-            return ApiResponse::success(SftpStatusResponse {
+            return SftpApiResponse::success(SftpStatusResponse {
                 enabled: false,
                 expires_at: None,
-                expires_in_seconds: None,
             });
         }
 
@@ -90,40 +88,28 @@ impl SftpService {
             warn!("SFTP credentials have expired, disabling");
             self.state.disable().await;
 
-            return ApiResponse::success(SftpStatusResponse {
+            return SftpApiResponse::success(SftpStatusResponse {
                 enabled: false,
                 expires_at: None,
-                expires_in_seconds: None,
             });
         }
 
         // Get expiration info
         let expiration = *self.state.expiration.read().await;
-        let (expires_at, expires_in_seconds) = if let Some(exp) = expiration {
-            let expires_at = format_system_time(exp);
-            let expires_in = exp
-                .duration_since(SystemTime::now())
-                .map(|d| d.as_secs())
-                .unwrap_or(0);
-            (Some(expires_at), Some(expires_in))
-        } else {
-            (None, None)
-        };
-
-        ApiResponse::success(SftpStatusResponse {
+        let expires_at = expiration.map(format_system_time);
+        SftpApiResponse::success(SftpStatusResponse {
             enabled: true,
             expires_at,
-            expires_in_seconds,
         })
     }
 
     // Get SFTP credentials
     pub async fn get_credentials(
         &self,
-    ) -> Result<ApiResponse<CredentialsResponse>, ApiResponse<()>> {
+    ) -> Result<SftpApiResponse<CredentialsResponse>, SftpApiResponse<()>> {
         // Check if enabled
         if !self.state.is_enabled().await {
-            return Err(ApiResponse::error(
+            return Err(SftpApiResponse::error(
                 StatusCode::BAD_REQUEST,
                 "SFTP is not enabled".to_string(),
             ));
@@ -133,7 +119,7 @@ impl SftpService {
         if self.state.is_expired().await {
             warn!("Attempted to get expired credentials");
             self.state.disable().await;
-            return Err(ApiResponse::error(
+            return Err(SftpApiResponse::error(
                 StatusCode::BAD_REQUEST,
                 "SFTP credentials have expired".to_string(),
             ));
@@ -142,18 +128,17 @@ impl SftpService {
         // Get credentials
         let credentials =
             self.state.get_credentials().await.ok_or_else(|| {
-                ApiResponse::error(
+                SftpApiResponse::error(
                     StatusCode::INTERNAL_SERVER_ERROR,
                     "No credentials found".to_string(),
                 )
             })?;
 
-        let root_directory = self.state.get_root_directory().await;
-        Ok(ApiResponse::success(CredentialsResponse {
+        Ok(SftpApiResponse::success(CredentialsResponse {
             username: credentials.username,
             password: credentials.password,
-            root_dir: root_directory,
-            bind_addrs: "0.0.0.0".to_string(),
+            root_dir: self.root_dir.clone(),
+            bind_addrs: self.bind_addrs.clone(),
             port: self.port,
         }))
     }
