@@ -3,17 +3,18 @@ mod config;
 mod models;
 mod responses;
 mod services;
+mod state;
 mod utils;
 
-use crate::api::handlers::sftp::AppState;
-use crate::api::routes::{configure_api_routes, configure_sftp_routes};
+use crate::api::routes::{configure_health_routes, configure_sftp_routes};
 use crate::config::settings::Settings;
 use crate::models::sftp::SftpState;
 use crate::services::sftp::SftpService;
 use crate::utils::logger::init_logging;
 use axum::Router;
-use std::net::SocketAddr;
-use std::sync::Arc;
+use chrono::Utc;
+use state::AppState;
+use std::{net::SocketAddr, sync::Arc};
 use tokio::signal;
 use tracing::info;
 
@@ -31,11 +32,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let sftp_state = SftpState::new(sftp_root.clone());
     let sftp_service =
         Arc::new(SftpService::new(sftp_state.clone(), sftp_port));
-    let app_state = AppState { sftp_service };
+    let app_state = AppState { sftp_service, uptime: Utc::now() };
 
     let app = Router::new()
-        .merge(configure_api_routes())
-        .merge(configure_sftp_routes().with_state(app_state.clone()));
+        .merge(configure_health_routes())
+        .merge(configure_sftp_routes())
+        .with_state(app_state.clone());
 
     // Create the TCP listener
     let addr = SocketAddr::from(([0, 0, 0, 0], settings.server.port));
@@ -44,7 +46,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .expect("Failed to bind to address.");
     info!("🚀 Server started successfully, listening on http://{}", addr);
 
-    axum::serve(listener, app)
+    axum::serve(listener, app.into_make_service())
         .with_graceful_shutdown(shutdown_signal())
         .await
         .expect("Server error!");

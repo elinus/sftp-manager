@@ -1,33 +1,34 @@
-use axum::{
-    Json,
-    http::StatusCode,
-    response::{IntoResponse, Response},
-};
+use axum::response::{IntoResponse, Response};
+use axum::{Json, http::StatusCode};
 use serde::Serialize;
-use serde_json::json;
 
-#[derive(Debug)]
-pub struct ApiResponse<T> {
+#[derive(Debug, Serialize)]
+pub struct ApiResponse<T>
+where
+    T: Serialize,
+{
+    #[serde(skip_serializing)]
     pub status: StatusCode,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub data: Option<T>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub message: Option<String>,
 }
 
-impl<T> ApiResponse<T> {
+impl<T> ApiResponse<T>
+where
+    T: Serialize,
+{
     // Create a successful response with data
     pub fn success(data: T) -> Self {
         Self { status: StatusCode::OK, data: Some(data), message: None }
     }
 
-    // Create an error response with message and status
+    // Create an error response with a message and status
     pub fn error(status: StatusCode, message: impl Into<String>) -> Self {
         Self { status, data: None, message: Some(message.into()) }
-    }
-}
-
-impl<T> Default for ApiResponse<T> {
-    fn default() -> Self {
-        Self { status: StatusCode::OK, data: None, message: None }
     }
 }
 
@@ -36,11 +37,6 @@ where
     T: Serialize,
 {
     fn into_response(self) -> Response {
-        let body = Json(json!({
-            "status": self.status.as_u16(),
-            "data": self.data,
-            "message": self.message,
-        }));
-        (self.status, body).into_response()
+        (self.status, Json(self)).into_response()
     }
 }

@@ -75,12 +75,11 @@ impl SftpService {
     // Get current SFTP status
     pub async fn get_status(&self) -> ApiResponse<SftpStatusResponse> {
         let enabled = self.state.is_enabled().await;
-        let root_directory = self.state.get_root_directory().await;
+        // let root_directory = self.state.get_root_directory().await;
 
         if !enabled {
             return ApiResponse::success(SftpStatusResponse {
                 enabled: false,
-                root_directory,
                 expires_at: None,
                 expires_in_seconds: None,
             });
@@ -93,7 +92,6 @@ impl SftpService {
 
             return ApiResponse::success(SftpStatusResponse {
                 enabled: false,
-                root_directory,
                 expires_at: None,
                 expires_in_seconds: None,
             });
@@ -114,7 +112,6 @@ impl SftpService {
 
         ApiResponse::success(SftpStatusResponse {
             enabled: true,
-            root_directory,
             expires_at,
             expires_in_seconds,
         })
@@ -155,7 +152,8 @@ impl SftpService {
         Ok(ApiResponse::success(CredentialsResponse {
             username: credentials.username,
             password: credentials.password,
-            root_directory,
+            root_dir: root_directory,
+            bind_addrs: "0.0.0.0".to_string(),
             port: self.port,
         }))
     }

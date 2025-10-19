@@ -1,13 +1,11 @@
+use crate::api::handlers::{self, health::health_check};
+use crate::state::AppState;
 use axum::{
     Router,
     routing::{get, post},
 };
 
-use crate::api::handlers;
-use crate::api::handlers::health::health_check;
-use crate::api::handlers::sftp::AppState;
-
-pub fn configure_api_routes() -> Router {
+pub fn configure_health_routes() -> Router<AppState> {
     Router::new().route("/health", get(health_check))
 }
 

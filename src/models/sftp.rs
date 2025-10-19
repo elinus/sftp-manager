@@ -9,16 +9,16 @@ pub struct SftpState {
     pub enabled: Arc<RwLock<bool>>,
     pub expiration: Arc<RwLock<Option<SystemTime>>>,
     pub credentials: Arc<RwLock<Option<SftpCredentials>>>,
-    pub root_directory: Arc<RwLock<String>>,
+    pub root_dir: Arc<RwLock<String>>,
 }
 
 impl SftpState {
-    pub fn new(root_directory: String) -> Self {
+    pub fn new(root_dir: String) -> Self {
         Self {
             enabled: Arc::new(RwLock::new(false)),
             expiration: Arc::new(RwLock::new(None)),
             credentials: Arc::new(RwLock::new(None)),
-            root_directory: Arc::new(RwLock::new(root_directory)),
+            root_dir: Arc::new(RwLock::new(root_dir)),
         }
     }
 
@@ -55,7 +55,7 @@ impl SftpState {
     }
 
     pub async fn get_root_directory(&self) -> String {
-        self.root_directory.read().await.clone()
+        self.root_dir.read().await.clone()
     }
 }
 
@@ -100,7 +100,6 @@ pub struct ToggleSftpResponse {
 #[derive(Debug, Serialize)]
 pub struct SftpStatusResponse {
     pub enabled: bool,
-    pub root_directory: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub expires_at: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -112,6 +111,7 @@ pub struct SftpStatusResponse {
 pub struct CredentialsResponse {
     pub username: String,
     pub password: String,
-    pub root_directory: String,
+    pub bind_addrs: String,
     pub port: u16,
+    pub root_dir: String,
 }

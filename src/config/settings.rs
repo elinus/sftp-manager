@@ -1,7 +1,7 @@
 use config::{Config, ConfigError, File};
 use serde::{Deserialize, Serialize};
 
-/// Main application settings
+// Main application settings
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Settings {
     pub server: ServerSettings,

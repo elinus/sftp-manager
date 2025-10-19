@@ -3,17 +3,12 @@ use crate::models::sftp::{
     ToggleSftpResponse,
 };
 use crate::responses::api_response::ApiResponse;
-use crate::services::sftp::SftpService;
+
 use axum::Json;
 use axum::extract::State;
-use std::sync::Arc;
-use tracing::info;
 
-// Application state containing SFTP service
-#[derive(Clone)]
-pub struct AppState {
-    pub sftp_service: Arc<SftpService>,
-}
+use crate::state::AppState;
+use tracing::info;
 
 pub async fn toggle_sftp(
     State(state): State<AppState>,
