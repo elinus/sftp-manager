@@ -10,7 +10,6 @@ use tracing::{error, info, warn};
 /// - Stopping the server when disabled
 /// - Checking for credential expiration
 /// - Auto-disabling on expiration
-#[allow(dead_code)]
 pub struct SftpLifecycleManager {
     state: SftpState,
     bind_address: String,
@@ -19,9 +18,8 @@ pub struct SftpLifecycleManager {
     check_interval_secs: u64,
 }
 
-#[allow(dead_code)]
 impl SftpLifecycleManager {
-    // Create a new lifecycle manager
+    /// Create a new lifecycle manager
     pub fn new(
         state: SftpState,
         bind_address: String,
@@ -99,7 +97,7 @@ impl SftpLifecycleManager {
         }
     }
 
-    // Start the actual SFTP server
+    /// Start the actual SFTP server
     async fn start_server(
         &self,
     ) -> Result<JoinHandle<()>, Box<dyn std::error::Error + Send + Sync>> {
@@ -115,7 +113,7 @@ impl SftpLifecycleManager {
         let port = self.port;
         let root_dir = self.root_directory.clone();
         let username = credentials.username.clone();
-        let _password = credentials.password.clone();
+        let password = credentials.password.clone();
 
         info!(
             "Starting SFTP server: address={}, port={}, root={}, user={}",
@@ -124,34 +122,32 @@ impl SftpLifecycleManager {
 
         // Spawn the server task
         let task = tokio::spawn(async move {
-            // TODO: Replace with your actual SFTP server implementation
-            // This is a placeholder that shows the structure
+            // Import the SFTP server run function
+            use crate::sftp::run_sftp_server;
+
             info!("SFTP server task started");
 
-            // Your sftp_server::run() call would go here
-            // Example:
-            // if let Err(e) = run_sftp_server(
-            //     root_dir,
-            //     bind_address,
-            //     port,
-            //     username,
-            //     password,
-            // ).await {
-            //     error!("SFTP server error: {}", e);
-            // }
-
-            // Placeholder - just keep the task alive
-            loop {
-                tokio::time::sleep(Duration::from_secs(60)).await;
+            // Start the actual SFTP server
+            if let Err(e) = run_sftp_server(
+                root_dir,
+                bind_address,
+                port,
+                username,
+                password,
+            )
+            .await
+            {
+                error!("SFTP server error: {}", e);
             }
+
+            info!("SFTP server task ended");
         });
 
         Ok(task)
     }
 }
 
-// Convenience function to start the lifecycle manager
-#[allow(dead_code)]
+/// Convenience function to start the lifecycle manager
 pub fn start_sftp_lifecycle(
     state: SftpState,
     bind_address: String,

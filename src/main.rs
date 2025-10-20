@@ -3,6 +3,7 @@ mod config;
 mod models;
 mod responses;
 mod services;
+mod sftp;
 mod state;
 mod utils;
 

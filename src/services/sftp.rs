@@ -74,7 +74,6 @@ impl SftpService {
     // Get current SFTP status
     pub async fn get_status(&self) -> SftpApiResponse<SftpStatusResponse> {
         let enabled = self.state.is_enabled().await;
-        // let root_directory = self.state.get_root_directory().await;
 
         if !enabled {
             return SftpApiResponse::success(SftpStatusResponse {
