@@ -54,7 +54,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .expect("Failed to bind to address.");
     info!("🚀 Server started successfully, listening on http://{}", addr);
 
-    let _ =
+    let _sftp_handle =
         start_sftp_lifecycle(sftp_state, sftp_bind_addrs, sftp_port, sftp_root);
 
     axum::serve(listener, app.into_make_service())
