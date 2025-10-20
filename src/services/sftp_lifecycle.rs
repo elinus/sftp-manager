@@ -4,12 +4,12 @@ use tokio::task::JoinHandle;
 use tokio::time::interval;
 use tracing::{error, info, warn};
 
-/// SFTP lifecycle manager
-/// Handles:
-/// - Starting the SFTP server when enabled
-/// - Stopping the server when disabled
-/// - Checking for credential expiration
-/// - Auto-disabling on expiration
+// SFTP lifecycle manager
+// Handles:
+// - Starting the SFTP server when enabled
+// - Stopping the server when disabled
+// - Checking for credential expiration
+// - Auto-disabling on expiration
 pub struct SftpLifecycleManager {
     state: SftpState,
     bind_address: String,
@@ -19,7 +19,7 @@ pub struct SftpLifecycleManager {
 }
 
 impl SftpLifecycleManager {
-    /// Create a new lifecycle manager
+    // Create a new lifecycle manager
     pub fn new(
         state: SftpState,
         bind_address: String,
@@ -35,8 +35,8 @@ impl SftpLifecycleManager {
         }
     }
 
-    /// Start the lifecycle management task
-    /// Returns a JoinHandle that can be used to stop the manager
+    // Start the lifecycle management task
+    // Returns a JoinHandle that can be used to stop the manager
     pub fn start(self) -> JoinHandle<()> {
         tokio::spawn(async move {
             self.run().await;
@@ -147,7 +147,7 @@ impl SftpLifecycleManager {
     }
 }
 
-/// Convenience function to start the lifecycle manager
+// Convenience function to start the lifecycle manager
 pub fn start_sftp_lifecycle(
     state: SftpState,
     bind_address: String,

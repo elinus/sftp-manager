@@ -32,6 +32,7 @@ impl SftpServer {
     }
 
     /// Clears the stored credentials
+    #[allow(dead_code)]
     pub async fn clear_credentials(&self) {
         info!("Clearing SFTP credentials");
         let mut creds = self.credentials.write().await;

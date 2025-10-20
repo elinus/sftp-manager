@@ -14,13 +14,18 @@ pub struct SftpService {
     pub bind_addrs: String,
     pub port: u16,
     pub root_dir: String,
-    state: SftpState,
+    pub state: SftpState,
 }
 
 impl SftpService {
     // Create a new SFTP service
-    pub fn new(bind_addrs: String, port: u16, root_dir: String) -> Self {
-        Self { bind_addrs, port, root_dir, state: SftpState::new() }
+    pub fn new(
+        bind_addrs: String,
+        port: u16,
+        root_dir: String,
+        sftp_state: SftpState,
+    ) -> Self {
+        Self { bind_addrs, port, root_dir, state: sftp_state }
     }
 
     // Toggle SFTP server on/off

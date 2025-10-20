@@ -63,11 +63,12 @@ impl russh::server::Handler for SshSession {
         info!("Auth attempt with password: user={}", user);
 
         let credentials = self.sftp_server.credentials.read().await;
-        if let Some((username, pass)) = &*credentials {
-            if username == user && pass == password {
-                info!("Authentication successful for user: {}", user);
-                return Ok(Auth::Accept);
-            }
+        if let Some((username, pass)) = &*credentials
+            && username == user
+            && pass == password
+        {
+            info!("Authentication successful for user: {}", user);
+            return Ok(Auth::Accept);
         }
 
         warn!("Authentication failed for user: {}", user);

@@ -84,7 +84,7 @@ impl SftpSession {
 
     /// Normalizes and secures file paths within the root
     /// Prevents directory traversal attacks
-    async fn normalize_path(&self, path: &str) -> std::io::Result<PathBuf> {
+    async fn normalize_path(&self, path: &str) -> io::Result<PathBuf> {
         debug!("Normalizing path: {}", path);
         let root_path = Path::new(&self.root_dir);
 
@@ -94,7 +94,7 @@ impl SftpSession {
                 Ok(p) => Ok(p),
                 Err(e) => {
                     error!("Root directory is invalid: {}", e);
-                    Err(std::io::Error::new(std::io::ErrorKind::NotFound, e))
+                    Err(io::Error::new(io::ErrorKind::NotFound, e))
                 }
             };
         }
@@ -117,9 +117,9 @@ impl SftpSession {
     /// Handle normalization for paths that don't exist yet
     async fn handle_nonexistent_path(
         &self,
-        mut target_path: PathBuf,
+        target_path: PathBuf,
         root_path: &Path,
-    ) -> std::io::Result<PathBuf> {
+    ) -> io::Result<PathBuf> {
         // Look for the closest existing parent
         let mut current = target_path.clone();
         let mut parents_to_create = Vec::new();
@@ -132,8 +132,8 @@ impl SftpSession {
             match current.parent() {
                 Some(parent) => current = parent.to_path_buf(),
                 None => {
-                    return Err(std::io::Error::new(
-                        std::io::ErrorKind::NotFound,
+                    return Err(io::Error::new(
+                        io::ErrorKind::NotFound,
                         "No valid parent path found",
                     ));
                 }
@@ -143,18 +143,18 @@ impl SftpSession {
         // Canonicalize the existing parent
         let canonical_parent = current.canonicalize().map_err(|e| {
             error!("Failed to canonicalize parent path: {}", e);
-            std::io::Error::new(std::io::ErrorKind::Other, e)
+            io::Error::other(e)
         })?;
 
         // Check that the parent is within the root directory
         let canonical_root = root_path.canonicalize().map_err(|e| {
             error!("Failed to canonicalize root path: {}", e);
-            std::io::Error::new(std::io::ErrorKind::Other, e)
+            io::Error::other(e)
         })?;
 
         if !canonical_parent.starts_with(&canonical_root) {
-            return Err(std::io::Error::new(
-                std::io::ErrorKind::PermissionDenied,
+            return Err(io::Error::new(
+                io::ErrorKind::PermissionDenied,
                 "Path traversal not allowed",
             ));
         }
@@ -169,12 +169,12 @@ impl SftpSession {
         Ok(result_path)
     }
 
-    /// Canonicalize path and validate it's within root
+    /// Canonicalize a path and validate it's within root
     async fn canonicalize_and_validate(
         &self,
         target_path: PathBuf,
         root_path: &Path,
-    ) -> std::io::Result<PathBuf> {
+    ) -> io::Result<PathBuf> {
         let canonical_path = target_path.canonicalize().map_err(|e| {
             error!("Failed to canonicalize path: {}", e);
             e
@@ -182,12 +182,12 @@ impl SftpSession {
 
         let canonical_root = root_path.canonicalize().map_err(|e| {
             error!("Failed to canonicalize root path: {}", e);
-            std::io::Error::new(std::io::ErrorKind::Other, e)
+            io::Error::other(e)
         })?;
 
         if !canonical_path.starts_with(&canonical_root) {
-            return Err(std::io::Error::new(
-                std::io::ErrorKind::PermissionDenied,
+            return Err(io::Error::new(
+                io::ErrorKind::PermissionDenied,
                 "Path traversal not allowed",
             ));
         }
@@ -238,19 +238,15 @@ impl russh_sftp::server::Handler for SftpSession {
         })?;
 
         // Ensure parent directories exist when creating files
-        if creating_file {
-            if let Some(parent) = path.parent() {
-                if !parent.exists() {
-                    info!(
-                        "Creating parent directories for: {}",
-                        path.display()
-                    );
-                    fs::create_dir_all(parent).await.map_err(|e| {
-                        error!("Failed to create parent directories: {}", e);
-                        StatusCode::PermissionDenied
-                    })?;
-                }
-            }
+        if creating_file
+            && let Some(parent) = path.parent()
+            && !parent.exists()
+        {
+            info!("Creating parent directories for: {}", path.display());
+            fs::create_dir_all(parent).await.map_err(|e| {
+                error!("Failed to create parent directories: {}", e);
+                StatusCode::PermissionDenied
+            })?;
         }
 
         // Configure file opening options
@@ -510,7 +506,7 @@ impl russh_sftp::server::Handler for SftpSession {
             let path = open_handle.path.clone();
             let is_first_batch = start_idx == 0;
 
-            // Update the index for next read
+            // Update the index for the next read
             open_handle.dir_index = end_idx;
 
             (file_names, path, start_idx, end_idx, is_first_batch)
@@ -518,7 +514,7 @@ impl russh_sftp::server::Handler for SftpSession {
 
         let mut files = Vec::new();
 
-        // Only add . and .. on the first batch
+        // Only add (. & ..) on the first batch
         if is_first_batch {
             files.push(File::new(
                 ".".to_string(),

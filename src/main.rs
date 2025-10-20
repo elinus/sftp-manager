@@ -9,7 +9,9 @@ mod utils;
 
 use crate::api::routes::{configure_health_routes, configure_sftp_routes};
 use crate::config::settings::Settings;
-use crate::services::sftp::SftpService;
+use crate::models::sftp::SftpState;
+use crate::services::sftp_lifecycle::start_sftp_lifecycle;
+use crate::services::sftp_service::SftpService;
 use crate::utils::logger::init_logging;
 use axum::Router;
 use chrono::Utc;
@@ -30,8 +32,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let sftp_bind_addrs = settings.sftp.bind_addrs.clone();
     let sftp_port = settings.sftp.port;
     let sftp_root = settings.sftp.root_dir.clone();
-    let sftp_service =
-        Arc::new(SftpService::new(sftp_bind_addrs, sftp_port, sftp_root));
+    let sftp_state = SftpState::new();
+    let sftp_service = Arc::new(SftpService::new(
+        sftp_bind_addrs.clone(),
+        sftp_port,
+        sftp_root.clone(),
+        sftp_state.clone(),
+    ));
 
     let app_state = AppState { sftp_service, uptime: Utc::now() };
 
@@ -46,6 +53,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .await
         .expect("Failed to bind to address.");
     info!("🚀 Server started successfully, listening on http://{}", addr);
+
+    let _ =
+        start_sftp_lifecycle(sftp_state, sftp_bind_addrs, sftp_port, sftp_root);
 
     axum::serve(listener, app.into_make_service())
         .with_graceful_shutdown(shutdown_signal())

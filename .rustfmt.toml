@@ -1,5 +1,5 @@
 edition = "2021"
-max_width = 80  # Set line width limit
+max_width = 80  # Set a line width limit
 tab_spaces = 4
 use_small_heuristics = "max"
 hard_tabs = false
