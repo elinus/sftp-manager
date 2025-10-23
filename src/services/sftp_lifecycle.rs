@@ -43,7 +43,7 @@ impl SftpLifecycleManager {
         })
     }
 
-    /// Main lifecycle loop
+    // Main lifecycle loop
     async fn run(self) {
         info!("SFTP lifecycle manager started");
 
@@ -97,7 +97,7 @@ impl SftpLifecycleManager {
         }
     }
 
-    /// Start the actual SFTP server
+    // Start the actual SFTP server
     async fn start_server(
         &self,
     ) -> Result<JoinHandle<()>, Box<dyn std::error::Error + Send + Sync>> {

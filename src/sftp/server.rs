@@ -6,17 +6,17 @@ use std::time::Duration;
 use tokio::sync::RwLock;
 use tracing::{debug, info};
 
-/// Main SFTP server structure
+// Main SFTP server structure
 #[derive(Clone)]
 pub struct SftpServer {
-    /// Root directory path for the SFTP server
+    // Root directory path for the SFTP server
     pub root_dir: Arc<RwLock<String>>,
-    /// Optional credentials for authentication (username, password)
+    // Optional credentials for authentication (username, password)
     pub credentials: Arc<RwLock<Option<(String, String)>>>,
 }
 
 impl SftpServer {
-    /// Creates a new SFTP server instance with the given root directory
+    // Creates a new SFTP server instance with the given root directory
     pub fn new(root_dir: String) -> Self {
         Self {
             root_dir: Arc::new(RwLock::new(root_dir)),
@@ -24,14 +24,14 @@ impl SftpServer {
         }
     }
 
-    /// Sets the username/password credentials to be used for authentication
+    // Sets the username/password credentials to be used for authentication
     pub async fn set_credentials(&self, username: String, password: String) {
         info!("Setting SFTP credentials for user: {}", username);
         let mut creds = self.credentials.write().await;
         *creds = Some((username, password));
     }
 
-    /// Clears the stored credentials
+    // Clears the stored credentials
     #[allow(dead_code)]
     pub async fn clear_credentials(&self) {
         info!("Clearing SFTP credentials");
@@ -39,7 +39,7 @@ impl SftpServer {
         *creds = None;
     }
 
-    /// Starts the SFTP server on the given address and port
+    // Starts the SFTP server on the given address and port
     pub async fn start_server(
         self,
         addrs: String,
@@ -56,7 +56,7 @@ impl SftpServer {
     }
 }
 
-/// Create SSH server configuration
+// Create SSH server configuration
 fn create_ssh_config() -> russh::server::Config {
     russh::server::Config {
         auth_rejection_time: Duration::from_secs(3),
@@ -72,8 +72,8 @@ fn create_ssh_config() -> russh::server::Config {
     }
 }
 
-/// Entry point to run the SFTP server
-/// This is the main function called from the lifecycle manager
+// Entry point to run the SFTP server
+// This is the main function called from the lifecycle manager
 pub async fn run_sftp_server(
     root_dir: String,
     bind_address: String,

@@ -13,11 +13,13 @@ use crate::models::sftp::SftpState;
 use crate::services::sftp_lifecycle::start_sftp_lifecycle;
 use crate::services::sftp_service::SftpService;
 use crate::utils::logger::init_logging;
+
 use axum::Router;
 use chrono::Utc;
 use state::AppState;
 use std::{net::SocketAddr, sync::Arc};
 use tokio::signal;
+use tower_http::trace::TraceLayer;
 use tracing::info;
 
 #[tokio::main]
@@ -45,7 +47,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let app = Router::new()
         .merge(configure_health_routes())
         .merge(configure_sftp_routes())
-        .with_state(app_state.clone());
+        .with_state(app_state.clone())
+        .layer(TraceLayer::new_for_http());
 
     // Create the TCP listener
     let addr = SocketAddr::from(([0, 0, 0, 0], settings.server.port));

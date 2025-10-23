@@ -10,9 +10,10 @@ tokio = { version = "1.48.0", features = ["full"] }
 tracing = "0.1.41"
 chrono = "0.4.42"
 config = "0.15.18"
-tracing-subscriber = "0.3.20"
+tracing-subscriber = { version = "0.3.20", features = ["env-filter"] }
 rand = "0.10.0-rc.0"
 serde_json = "1.0.145"
 russh-sftp = "2.1.1"
 russh = "0.54.6"
 anyhow = "1.0.100"
+tower-http = { version = "0.6.6", features = ["trace"] }
